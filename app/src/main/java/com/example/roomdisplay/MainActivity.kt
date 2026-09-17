@@ -27,16 +27,21 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
 private const val STATUS_URL = "https://zoho-room-display-lion.misha-9f1.workers.dev/api/status"
 private const val POLL_INTERVAL_MS = 30_000L
 private const val CLOCK_TICK_MS = 1_000L
+private const val ENDING_SOON_MINUTES = 5
+private const val STALE_AFTER_SEC = 90L
 
 private val darkBar = Color(0xFF14181D)
 private val freeColor = Color(0xFF0E6B4F)
 private val busyColor = Color(0xFFD42A20)
+private val warningColor = Color(0xFFD97706)
+private val staleTextColor = Color(0xFFEF4444)
 
 data class RoomStatus(
     val isOccupied: Boolean,
@@ -57,11 +62,16 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             var status by remember { mutableStateOf<RoomStatus?>(null) }
+            var lastUpdated by remember { mutableStateOf<Date?>(null) }
             var now by remember { mutableStateOf(Date()) }
 
             LaunchedEffect(Unit) {
                 while (true) {
-                    status = fetchStatus()
+                    val result = fetchStatus()
+                    if (result != null) {
+                        status = result
+                        lastUpdated = Date()
+                    }
                     delay(POLL_INTERVAL_MS)
                 }
             }
@@ -73,7 +83,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            RoomScreen(status, now)
+            RoomScreen(status, now, lastUpdated)
         }
     }
 
@@ -116,7 +126,6 @@ private suspend fun fetchStatus(): RoomStatus? = withContext(Dispatchers.IO) {
     }
 }
 
-// Turns "mtsurmudiani@liontrans.com" into "Mtsurmudiani" for a cleaner display.
 private fun prettyOrganizer(email: String?): String? {
     if (email.isNullOrBlank()) return null
     val local = email.substringBefore("@")
@@ -125,16 +134,55 @@ private fun prettyOrganizer(email: String?): String? {
     }
 }
 
+private fun timeStringToDateToday(hhmm: String?, reference: Date): Date? {
+    if (hhmm.isNullOrBlank()) return null
+    val parts = hhmm.split(":")
+    if (parts.size != 2) return null
+    val hour = parts[0].toIntOrNull() ?: return null
+    val minute = parts[1].toIntOrNull() ?: return null
+    val cal = Calendar.getInstance()
+    cal.time = reference
+    cal.set(Calendar.HOUR_OF_DAY, hour)
+    cal.set(Calendar.MINUTE, minute)
+    cal.set(Calendar.SECOND, 0)
+    cal.set(Calendar.MILLISECOND, 0)
+    return cal.time
+}
+
+private fun agoText(lastUpdated: Date?, now: Date): String {
+    if (lastUpdated == null) return "Not yet updated"
+    val diffSec = ((now.time - lastUpdated.time) / 1000).coerceAtLeast(0)
+    return when {
+        diffSec < 60 -> "Updated ${diffSec}s ago"
+        diffSec < 3600 -> "Updated ${diffSec / 60}m ago"
+        else -> "Updated ${diffSec / 3600}h ago"
+    }
+}
+
 @Composable
-fun RoomScreen(status: RoomStatus?, now: Date) {
+fun RoomScreen(status: RoomStatus?, now: Date, lastUpdated: Date?) {
+    val minutesLeft = remember(status, now) {
+        if (status?.isOccupied == true) {
+            timeStringToDateToday(status.currentEndTime, now)?.let { end ->
+                ((end.time - now.time) / 60000).toInt()
+            }
+        } else null
+    }
+
+    val endingSoon = status?.isOccupied == true && minutesLeft != null && minutesLeft in 0..ENDING_SOON_MINUTES
+
     val accent = when {
         status == null -> Color(0xFF37474F)
+        status.isOccupied && endingSoon -> warningColor
         status.isOccupied -> busyColor
         else -> freeColor
     }
 
     val timeText = remember(now) { SimpleDateFormat("HH:mm", Locale.ENGLISH).format(now) }
     val dateText = remember(now) { SimpleDateFormat("EEEE, d MMMM", Locale.ENGLISH).format(now) }
+
+    val staleSec = lastUpdated?.let { ((now.time - it.time) / 1000) } ?: Long.MAX_VALUE
+    val isStale = staleSec > STALE_AFTER_SEC
 
     Column(modifier = Modifier.fillMaxSize()) {
 
@@ -189,9 +237,14 @@ fun RoomScreen(status: RoomStatus?, now: Date) {
                 }
 
                 Text(
-                    if (status == null) "..." else if (status.isOccupied) "BUSY" else "FREE",
+                    when {
+                        status == null -> "..."
+                        status.isOccupied && endingSoon -> "ENDING SOON"
+                        status.isOccupied -> "BUSY"
+                        else -> "FREE"
+                    },
                     color = Color.White,
-                    fontSize = 88.sp,
+                    fontSize = if (endingSoon) 64.sp else 88.sp,
                     fontWeight = FontWeight.ExtraBold,
                 )
 
@@ -259,6 +312,15 @@ fun RoomScreen(status: RoomStatus?, now: Date) {
                 if (status != null && status.currentTitle == null && status.nextTitle == null) {
                     Text("No meetings scheduled today", color = Color(0xFF9CA3AF), fontSize = 15.sp)
                 }
+
+                Spacer(Modifier.weight(1f))
+
+                Text(
+                    agoText(lastUpdated, now),
+                    color = if (isStale) staleTextColor else Color(0xFFD1D5DB),
+                    fontSize = 12.sp,
+                    fontWeight = if (isStale) FontWeight.Bold else FontWeight.Normal,
+                )
             }
         }
     }
