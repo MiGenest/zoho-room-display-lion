@@ -338,12 +338,12 @@ private fun AgendaEntry(dotColor: Color, timeRange: String, timeColor: Color, ti
         )
         Spacer(Modifier.width(10.dp))
         Column {
-            Text(timeRange, color = timeColor, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(4.dp))
-            Text(title, color = Color(0xFF1F2937), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Text(timeRange, color = timeColor, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(6.dp))
+            Text(title, color = Color(0xFF1F2937), fontSize = 23.sp, fontWeight = FontWeight.Bold)
             if (organizer != null) {
-                Spacer(Modifier.height(2.dp))
-                Text(organizer, color = Color(0xFF9CA3AF), fontSize = 14.sp)
+                Spacer(Modifier.height(4.dp))
+                Text(organizer, color = Color(0xFF6B7280), fontSize = 19.sp)
             }
         }
     }
