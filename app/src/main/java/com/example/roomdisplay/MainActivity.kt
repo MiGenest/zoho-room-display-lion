@@ -32,7 +32,7 @@ import java.util.Date
 import java.util.Locale
 
 private const val STATUS_URL = "https://zoho-room-display-lion.misha-9f1.workers.dev/api/status"
-private const val POLL_INTERVAL_MS = 300_000L // 5 minutes
+private const val POLL_INTERVAL_MS = 60_000L // 1 minute
 private const val CLOCK_TICK_MS = 1_000L
 private const val ENDING_SOON_MINUTES = 5
 private const val STALE_AFTER_SEC = 90L
