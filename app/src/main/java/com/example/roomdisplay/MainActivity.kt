@@ -60,6 +60,12 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         goFullscreen()
 
+        try {
+            startLockTask()
+        } catch (e: Exception) {
+            android.util.Log.e("RoomDisplay", "startLockTask failed", e)
+        }
+
         setContent {
             var status by remember { mutableStateOf<RoomStatus?>(null) }
             var lastUpdated by remember { mutableStateOf<Date?>(null) }
