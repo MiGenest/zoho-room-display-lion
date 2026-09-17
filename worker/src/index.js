@@ -27,7 +27,14 @@ export default {
   },
 };
 
+const TOKEN_KEY = "zoho_access_token";
+
 async function getAccessToken(env) {
+  const cached = await env.TOKEN_CACHE.get(TOKEN_KEY);
+  if (cached) {
+    return cached;
+  }
+
   const params = new URLSearchParams({
     grant_type: "refresh_token",
     client_id: env.ZOHO_CLIENT_ID,
@@ -44,6 +51,8 @@ async function getAccessToken(env) {
   if (!data.access_token) {
     throw new Error("Zoho token refresh failed: " + JSON.stringify(data));
   }
+
+  await env.TOKEN_CACHE.put(TOKEN_KEY, data.access_token, { expirationTtl: 3300 });
 
   return data.access_token;
 }
