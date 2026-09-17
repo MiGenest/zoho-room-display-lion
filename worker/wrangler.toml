@@ -1,3 +1,7 @@
 name = "room-display-worker"
 main = "src/index.js"
 compatibility_date = "2025-01-01"
+
+[[kv_namespaces]]
+binding = "TOKEN_CACHE"
+id = "2ae8e0636c324266a91251b685e6bbbf"
